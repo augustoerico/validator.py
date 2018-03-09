@@ -545,9 +545,10 @@ def validate(validation, dictionary, allow_extra=True):
 
     errors = defaultdict(list)
 
-    for key in dictionary:
-        if key not in validation and not allow_extra:
-            errors[key] = "is not allowed"
+    if not allow_extra:
+        for key in dictionary:
+            if key not in validation:
+                errors[key] = "is not allowed"
 
     for key in validation:
         if isinstance(validation[key], (list, tuple)):
