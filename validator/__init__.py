@@ -29,7 +29,7 @@ Author: Samuel Lucidi <sam@samlucidi.com>
 
 """
 
-__version__ = "1.2.5"
+__version__ = "1.2.6"
 
 import re
 from collections import namedtuple
@@ -365,11 +365,13 @@ class Then(Validator):
         fails = {"foo": 1, "bar": 3}
     """
 
-    def __init__(self, validation):
+    def __init__(self, validation, allow_extra=True):
         self.validation = validation
+        self.allow_extra = allow_extra
+
 
     def __call__(self, dictionary):
-        return validate(self.validation, dictionary)
+        return validate(self.validation, dictionary, self.allow_extra)
 
 class If(Validator):
     """
@@ -518,7 +520,7 @@ class Each(Validator):
         return (len(errors) == 0, errors)
 
 
-def validate(validation, dictionary):
+def validate(validation, dictionary, allow_extra=True):
     """
     Validate that a dictionary passes a set of
     key-based validators. If all of the keys
@@ -532,6 +534,9 @@ def validate(validation, dictionary):
     :param dictionary: dictionary to be validated
     :type dictionary: dict
 
+    :param allow_extra: boolean to allow extra keys in dictionary
+    :type allow_extra: bool
+
     :return: a tuple containing a bool indicating
     success or failure and a mapping of fields
     to error messages.
@@ -539,20 +544,27 @@ def validate(validation, dictionary):
     """
 
     errors = defaultdict(list)
+
+    for key in dictionary:
+        if key not in validation and not allow_extra:
+            errors[key] = "is not allowed"
+
     for key in validation:
         if isinstance(validation[key], (list, tuple)):
             if Required in validation[key]:
                 if not Required(key, dictionary):
                     errors[key] = "must be present"
                     continue
-            _validate_list_helper(validation, dictionary, key, errors)
+            _validate_list_helper(validation, dictionary, key, errors, allow_extra)
         else:
+
             v = validation[key]
             if v == Required:
                 if not Required(key, dictionary):
                     errors[key] = "must be present"
             else:
                 _validate_and_store_errs(v, dictionary, key, errors)
+
     if len(errors) > 0:
         # `errors` gets downgraded from defaultdict to dict
         # because it makes for prettier output
@@ -588,14 +600,14 @@ def _validate_and_store_errs(validator, dictionary, key, errors):
         msg = getattr(validator, "err_message", "failed validation")
         errors[key].append(msg)
 
-def _validate_list_helper(validation, dictionary, key, errors):
+def _validate_list_helper(validation, dictionary, key, errors, allow_extras):
     for v in validation[key]:
         # don't break on optional keys
         if key in dictionary:
             # Ok, need to deal with nested
             # validations.
             if isinstance(v, dict):
-                _, nested_errors = validate(v, dictionary[key])
+                _, nested_errors = validate(v, dictionary[key], allow_extras)
                 if nested_errors:
                     errors[key].append(nested_errors)
                 continue

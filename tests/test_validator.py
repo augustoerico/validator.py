@@ -422,3 +422,37 @@ class TestValidator(object):
                 "must be an instance of str or its subclasses"
             ]
         }
+
+    def test_not_allow_extra_fields(self):
+        validation = {
+            "foo": [Required]
+        }
+        test_case = {
+            "foo": 10,
+            "bar": "qux"
+        }
+
+        valid, errors = validate(validation, test_case, False)
+        assert not valid
+        assert errors == {
+            "bar": "is not allowed"
+        }
+
+    def test_not_allow_nested_extra_fields(self):
+        validation = {
+            "foo": [Required, {
+                "bar": [Required]
+            }]
+        }
+        test_case = {
+            "foo": {
+                "bar": 10,
+                "qux": "zot"
+            }
+        }
+
+        valid, errors = validate(validation, test_case, False)
+        assert not valid
+        assert errors == {
+            "foo": [{"qux": "is not allowed"}]
+        }
